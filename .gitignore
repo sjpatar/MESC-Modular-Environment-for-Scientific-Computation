@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+.python-version
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Test / coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.tox/
+.nox/
+coverage.xml
+junit.xml
+
+# Type checker / linter caches
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Distribution / Build artifacts
+dist/
+build/
+site/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+*.spec
+release/private/
+release/output/
+packaging/windows/build/
+packaging/windows/dist/
+
+# IDE / editor folders
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

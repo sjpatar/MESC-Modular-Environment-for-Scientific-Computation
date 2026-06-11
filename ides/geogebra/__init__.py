@@ -1,0 +1,1 @@
+"""GeoGebra-inspired tool integration."""

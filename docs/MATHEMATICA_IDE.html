@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MESC-Mathematica IDE: Official Documentation</title>
+    <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-panel: #2d2d2d;
+            --text-main: #d4d4d4;
+            --text-heading: #ffffff;
+            --accent: #007acc;
+            --code-text: #dcdcaa;
+            --border: #3e3e42;
+        }
+
+        /* --- PREMIUM DARK SCROLLBAR --- */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+        ::-webkit-scrollbar-corner { background: var(--bg-primary); }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--text-heading);
+            font-weight: 600;
+        }
+
+        h1 {
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 5px;
+            margin-top: 40px;
+        }
+
+        .meta-info {
+            background-color: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 30px;
+        }
+
+        .meta-info p {
+            margin: 5px 0;
+            font-size: 0.95em;
+        }
+
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: var(--bg-secondary);
+            color: var(--code-text);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+
+        pre {
+            background-color: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: var(--text-main);
+        }
+
+        ul, ol {
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 30px;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--bg-panel);
+            color: var(--text-heading);
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #222222;
+        }
+
+        .note {
+            background-color: rgba(0, 122, 204, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 10px 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>-Mathematica IDE: Official Documentation</h1>
+    
+    <div class="meta-info">
+        <p><strong>Version:</strong> 1.0.0</p>
+        <p><strong>Project:</strong> Mathematical Environment for Scientific Computation (MESC)</p>
+        <p><strong>Document Status:</strong> Final</p>
+        <p><strong>Target Audience:</strong> End-Users, Developers, Scientists</p>
+    </div>
+
+    <h2>1. Introduction</h2>
+    <p>The <strong>MESC-Mathematica IDE</strong> is an advanced, cell-based computational notebook interface integrated into the broader MESC ecosystem. Designed to closely emulate the user experience and syntax of Wolfram Mathematica, this environment provides researchers, scientists, and students with a robust platform for symbolic mathematics, algorithmic execution, and interactive data visualization.</p>
+    
+    <h3>1.1 Core Objectives</h3>
+    <ul>
+        <li>Provide a seamless, interactive notebook environment for step-by-step code execution.</li>
+        <li>Render complex mathematical outputs natively using high-quality typography.</li>
+        <li>Ensure data resilience through robust manual and automatic session persistence mechanisms.</li>
+        <li>Offer accessible floating tool palettes for rapid mathematical input.</li>
+    </ul>
+
+    <h2>2. Technologies Used</h2>
+    <p>The Mathematica IDE relies on a hybrid architecture, combining the performance of a native desktop framework with the flexibility of modern web rendering engines.</p>
+    
+    <ul>
+        <li><strong>Python 3.11+:</strong> The core execution language handling process routing.</li>
+        <li><strong>SymPy:</strong> The backbone for computer algebra and symbolic mathematics parsing.</li>
+        <li><strong>PySide6 (Qt for Python):</strong> Utilized for the native application window, system dialogs, and native toolbars.</li>
+        <li><strong>QtWebEngine:</strong> An embedded Chromium-based browser engine used to render the highly interactive notebook interface.</li>
+        <li><strong>MathJax 3.0:</strong> Asynchronously renders LaTeX and MathML outputs into crisp, scalable mathematical notation.</li>
+    </ul>
+
+    <h2>3. Architecture Overview</h2>
+    <p>The IDE operates on a <strong>bridge-communication</strong> model between the native Qt environment and the embedded JavaScript DOM:</p>
+    <ol>
+        <li><strong>Input:</strong> The user types math into a JS <code>&lt;textarea&gt;</code>.</li>
+        <li><strong>Trigger:</strong> Pressing <code>Shift + Enter</code> triggers a JS event.</li>
+        <li><strong>Bridge:</strong> JS sends a base64 encoded string via <code>console.log("EXECUTE:...")</code>.</li>
+        <li><strong>Intercept:</strong> PySide6's <code>QWebEnginePage.javaScriptConsoleMessage</code> intercepts the log, decodes the string, and passes it to the Python backend.</li>
+        <li><strong>Computation:</strong> Python evaluates the math using SymPy.</li>
+        <li><strong>Output:</strong> Python generates HTML/LaTeX, encodes it in base64, and injects it back into the DOM.</li>
+        <li><strong>Render:</strong> MathJax processes the newly injected DOM element.</li>
+    </ol>
+
+    <h2>4. User Guide</h2>
+
+    <h3>4.1 The Notebook Interface</h3>
+    <p>The primary workspace is the Notebook, consisting of consecutive input and output cells.</p>
+    <ul>
+        <li><strong>Execution:</strong> Type your mathematical expression and press <code>Shift + Enter</code> to evaluate it.</li>
+        <li><strong>System Messages:</strong> Errors, kernel resets, and file-loading confirmations appear in distinct, blue-bordered system cells.</li>
+    </ul>
+
+    <h3>4.2 Toolbar Controls</h3>
+    <ul>
+        <li>📂 <strong>Load Notebook:</strong> Opens a <code>.mathnotebook</code> JSON file and restores the visual layout and backend variables.</li>
+        <li>💾 <strong>Save Notebook:</strong> Serializes the current DOM state and Python variables into a standalone file.</li>
+        <li>🗑️ <strong>Clear Notebook:</strong> Wipes the DOM and resets the cell counter visually.</li>
+        <li>📄 <strong>Export to PDF:</strong> Renders the current notebook structure into a high-fidelity PDF document.</li>
+        <li>📋 <strong>Variables:</strong> Opens the Variable Inspector Dialog, presenting a real-time table of all assigned symbolic variables.</li>
+    </ul>
+
+    <h3>4.3 Floating Palettes</h3>
+    <p>Floating palettes can be triggered from the "Palettes" dropdown menu. These windows utilize <code>Qt.Tool</code> to remain permanently on top of the IDE without stealing keyboard focus from your active cell.</p>
+    <ul>
+        <li><strong>Basic Math Assistant:</strong> Access to common operators (√, x², π, e), Calculus templates (∫, ∂, ∑), and common functions (Sin, Log).</li>
+        <li><strong>Special Characters:</strong> A comprehensive grid of Greek letters (α, β, Γ, Δ) and relational operators (≤, ≥, ≠, →).</li>
+    </ul>
+    <div class="note">
+        <strong>Note:</strong> Clicking a palette button automatically inserts the requested symbol at your exact cursor position within the currently active input cell.
+    </div>
+
+    <h2>5. Advanced Capabilities</h2>
+
+    <h3>5.1 Zero-Loss Persistence (Continuous Auto-Save)</h3>
+    <p>The IDE guarantees zero data loss in the event of unexpected app closure or system failure.</p>
+    <ul>
+        <li>Every time a user changes focus or executes code, the system triggers <code>autoSave()</code>.</li>
+        <li>The entire DOM structure and SymPy backend variable dictionary are serialized into JSON.</li>
+        <li>This JSON is piped into OS-native <code>QSettings</code>. Upon the next application launch, the exact DOM state and variables are rebuilt seamlessly.</li>
+    </ul>
+
+    <h3>5.2 Dynamic Variable Manipulation</h3>
+    <p>The IDE supports dynamic variable tweaking. When a slider or interactive element is moved in the output cell, Python temporarily updates the global variable dictionary, re-evaluates the mathematical expression, and patches only the specific HTML container of that cell ID to prevent page stuttering.</p>
+
+    <h2>6. Developer Guidelines</h2>
+
+    <h3>6.1 Adding New Palette Items</h3>
+    <p>To add a new symbol to a palette, navigate to <code>ides/mathematica/ui/palettes.py</code>. Locate the relevant array and append a tuple: <code>("Button Label", "TextToInsert")</code>.</p>
+<pre><code># Example: Adding a Matrix template
+matrix_buttons = [
+    ("2x2 Matrix", "{{a, b}, {c, d}}")
+]
+self.add_section("Linear Algebra", matrix_buttons, columns=1)</code></pre>
+
+    <h3>6.2 The JavaScript/Python API Contract</h3>
+    <p>When altering the HTML template, adhere strictly to the base64-encoded <code>console.log</code> data bridge format:</p>
+    <ul>
+        <li><strong>Execution:</strong> <code>console.log("EXECUTE:" + cell_id + ":" + base64_code);</code></li>
+        <li><strong>Manipulation:</strong> <code>console.log("MANIPULATE:" + cellId + ":" + varName + ":" + value + ":" + base64_expr);</code></li>
+        <li><strong>State Saving:</strong> <code>console.log("SAVE_STATE:" + base64_json_state);</code></li>
+    </ul>
+
+    <h2>7. Troubleshooting</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Issue</th>
+                <th>Cause</th>
+                <th>Resolution</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Math elements show raw LaTeX instead of formatting.</td>
+                <td>MathJax CDN failed to load.</td>
+                <td>Ensure active internet connection, or configure the IDE to use a locally downloaded MathJax library.</td>
+            </tr>
+            <tr>
+                <td>Clicking a Palette button deletes text instead of inserting.</td>
+                <td>Focus tracking failed.</td>
+                <td>The cursor <code>activeCellId</code> relies on the textarea onfocus event. Ensure you have clicked inside a cell at least once.</td>
+            </tr>
+            <tr>
+                <td>App lags severely during loops.</td>
+                <td>maxCellId sync error.</td>
+                <td>Do not manipulate DOM elements directly through python loops. Use the asynchronous <code>appendSystemMessage</code> method.</td>
+            </tr>
+            <tr>
+                <td>Variables lost after saving notebook.</td>
+                <td>Un-serializable SymPy objects.</td>
+                <td>If a custom object lacks a string representation, it cannot be recovered via <code>sympy.sympify()</code>.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p style="text-align: center; margin-top: 40px; color: #888; font-size: 0.9em;">
+        <em>End of Documentation. Property of the MESC Development Team.</em>
+    </p>
+
+</body>
+</html>

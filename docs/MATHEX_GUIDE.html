@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MESC-Mathex: Syntax & User Guide</title>
+    <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-panel: #2d2d2d;
+            --text-main: #d4d4d4;
+            --text-heading: #ffffff;
+            --accent: #007acc;
+            --accent-green: #4caf50;
+            --accent-orange: #ce9178;
+            --code-text: #dcdcaa;
+            --code-func: #569cd6;
+            --border: #3e3e42;
+        }
+
+        /* --- PREMIUM DARK SCROLLBAR --- */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+        ::-webkit-scrollbar-corner { background: var(--bg-primary); }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 30px;
+            max-width: 950px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3, h4 { color: var(--text-heading); font-weight: 600; }
+        h1 { border-bottom: 2px solid var(--accent); padding-bottom: 10px; margin-bottom: 20px; }
+        h2 { border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-top: 40px; color: var(--accent-green); }
+
+        .meta-info {
+            background-color: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 30px;
+        }
+
+        .meta-info p { margin: 5px 0; font-size: 0.95em; }
+
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: var(--bg-secondary);
+            color: var(--code-text);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+
+        .func { color: var(--code-func); font-weight: bold; }
+        .str { color: var(--accent-orange); }
+
+        pre {
+            background-color: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        pre code { background-color: transparent; padding: 0; color: var(--text-main); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 30px; font-size: 0.95em; }
+        th, td { border: 1px solid var(--border); padding: 12px; text-align: left; }
+        th { background-color: var(--bg-panel); color: var(--text-heading); font-weight: 600; }
+        tr:nth-child(even) { background-color: #222222; }
+
+        .note {
+            background-color: rgba(0, 122, 204, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 10px 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>MESC-Mathex: Syntax & User Guide</h1>
+    
+    <div class="meta-info">
+        <p><strong>Platform:</strong> MESC-Mathex IDE</p>
+        <p><strong>Description:</strong> A comprehensive reference guide for array manipulation, plotting, and standard Mathex syntax.</p>
+    </div>
+
+    <div class="note">
+        <strong>Execution Shortcuts:</strong> <br>
+        <code>F5</code> : Run the entire active script.<br>
+        <code>F9</code> : Run the currently selected lines (or current line if no selection).
+    </div>
+
+    <h2>1. Core Environment</h2>
+    <p>Mathex is built to process procedural array-based mathematics natively. The workspace consists of:</p>
+    <ul>
+        <li><strong>Editor:</strong> Write your multi-line <code>.m</code> scripts with syntax highlighting and auto-indentation.</li>
+        <li><strong>Console:</strong> Directly evaluate fast mathematical commands and view execution outputs or error tracebacks.</li>
+        <li><strong>Variable Inspector:</strong> Real-time tracking of all active workspace variables, matrices, and their dimensions.</li>
+        <li><strong>Plot Dock:</strong> An embedded engine for rendering high-performance 2D and 3D graphs natively.</li>
+    </ul>
+
+    <h2>2. Basic Syntax & Matrix Operations</h2>
+    <p>In Mathex, everything defaults to double-precision arrays.</p>
+    
+    <h3>Variable Assignment & Arrays</h3>
+<pre><code><span style="color: #6a9955;">% Single values</span>
+a = 10;
+b = pi * 2;
+
+<span style="color: #6a9955;">% Row vectors and Column vectors</span>
+row = [1, 2, 3, 4];
+col = [1; 2; 3; 4];
+
+<span style="color: #6a9955;">% Matrix generation</span>
+A = [1, 2; 3, 4];
+B = <span class="func">zeros</span>(2, 2);
+C = <span class="func">ones</span>(3, 3);
+I = <span class="func">eye</span>(4); <span style="color: #6a9955;">% Identity matrix</span>
+</code></pre>
+
+    <h3>Element-wise vs Matrix Operations</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Operation</th>
+                <th>Matrix-wise</th>
+                <th>Element-wise</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Multiplication</td><td><code>A * B</code></td><td><code>A .* B</code></td></tr>
+            <tr><td>Division</td><td><code>A / B</code></td><td><code>A ./ B</code></td></tr>
+            <tr><td>Exponentiation</td><td><code>A ^ 2</code></td><td><code>A .^ 2</code></td></tr>
+        </tbody>
+    </table>
+
+    <h2>3. Control Flow & Scripting</h2>
+    <p>Logic blocks must be closed with the <code>end</code> keyword.</p>
+
+<pre><code><span style="color: #6a9955;">% If-Else Conditionals</span>
+x = 5;
+if x > 10
+    <span class="func">disp</span>(<span class="str">'Greater than 10'</span>);
+elseif x == 5
+    <span class="func">disp</span>(<span class="str">'Exactly 5'</span>);
+else
+    <span class="func">disp</span>(<span class="str">'Less than 10'</span>);
+end
+
+<span style="color: #6a9955;">% For Loops (using colon operator for ranges)</span>
+for i = 1:1:10
+    <span class="func">disp</span>(i);
+end
+
+<span style="color: #6a9955;">% While Loops</span>
+count = 0;
+while count < 5
+    count = count + 1;
+end
+</code></pre>
+
+    <h2>4. Plotting & Graphics</h2>
+    <p>Mathex handles rendering via the embedded Plot Dock. Use standard figure manipulation commands.</p>
+
+<pre><code><span style="color: #6a9955;">% 2D Line Plot</span>
+x = <span class="func">linspace</span>(0, 2*pi, 100);
+y = <span class="func">sin</span>(x);
+
+<span class="func">plot</span>(x, y);
+<span class="func">title</span>(<span class="str">'Sine Wave'</span>);
+<span class="func">xlabel</span>(<span class="str">'Time (s)'</span>);
+<span class="func">ylabel</span>(<span class="str">'Amplitude'</span>);
+<span class="func">grid on</span>;
+
+<span style="color: #6a9955;">% 3D Surface Plot</span>
+[X, Y] = <span class="func">meshgrid</span>(-5:0.5:5, -5:0.5:5);
+Z = X.^2 + Y.^2;
+<span class="func">surf</span>(X, Y, Z);
+
+<span style="color: #6a9955;">% 3D Animated Comet</span>
+t = 0:pi/50:10*pi;
+<span class="func">comet3</span>(sin(t), cos(t), t);
+</code></pre>
+
+    <h2>5. Common Built-In Functions</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Category</th>
+                <th>Functions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Math</strong></td>
+                <td><code>sin</code>, <code>cos</code>, <code>tan</code>, <code>exp</code>, <code>log</code>, <code>sqrt</code>, <code>abs</code></td>
+            </tr>
+            <tr>
+                <td><strong>Linear Algebra</strong></td>
+                <td><code>inv(A)</code>, <code>det(A)</code>, <code>eig(A)</code>, <code>trace(A)</code>, <code>rank(A)</code></td>
+            </tr>
+            <tr>
+                <td><strong>Statistics</strong></td>
+                <td><code>mean(X)</code>, <code>median(X)</code>, <code>std(X)</code>, <code>var(X)</code>, <code>max(X)</code>, <code>min(X)</code></td>
+            </tr>
+            <tr>
+                <td><strong>Data IO</strong></td>
+                <td><code>load('data.mat')</code>, <code>save('data.mat', 'A')</code>, <code>readmatrix('data.csv')</code></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="note">
+        <strong>Tip:</strong> Semicolons <code>;</code> at the end of a line suppress the output in the console. Omitting the semicolon forces Mathex to echo the variable's value back to you instantly!
+    </div>
+
+    <p style="text-align: center; margin-top: 40px; color: #888; font-size: 0.9em;">
+        <em>End of Syntax Guide. Property of the MESC Development Team.</em>
+    </p>
+
+</body>
+</html>

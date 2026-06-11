@@ -1,0 +1,113 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mesc-scientific-platform"
+version = "1.0.0"
+description = "MESC is a modular scientific computing platform with a MATLAB-compatible kernel and PySide6 desktop shell."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Samarjit Patar", email = "patarsamar123abc@gmail.com" }
+]
+maintainers = [
+    { name = "Samarjit", email = "patarsamar123abc@gmail.com" }
+]
+requires-python = ">=3.10"
+keywords = [
+    "scientific-computing",
+    "matlab",
+    "numerical-analysis",
+    "education",
+    "engineering",
+    "data-visualization",
+    "stem",
+    "wolfram-mathematica"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Education"
+]
+dependencies = [
+    "cryptography>=48.0",
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "scipy>=1.11",
+    "matplotlib>=3.8",
+    "PySide6>=6.6",
+    "sympy",
+    "numba",
+    "scikit-image",
+    "plotly"
+]
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2",
+    "pytest>=7.4",
+    "pytest-qt>=4.4",
+    "pyinstaller>=6.0",
+    "black>=24.0",
+    "ruff>=0.2",
+    "mypy>=1.8",
+    "pre-commit>=3.6",
+]
+docs = [
+    "sphinx>=7.2",
+    "sphinx-rtd-theme>=2.0",
+    "myst-parser>=2.0",
+]
+perf = [
+    "numba>=0.59",
+]
+symbolic = [
+    "sympy>=1.12",
+]
+
+[project.scripts]
+mathex = "terminal.cli:main"
+
+[project.gui-scripts]
+mesc = "main:run"
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "app_platform*",
+    "ides*",
+    "shared*",
+    "terminal*"
+]
+
+[tool.setuptools.package-data]
+"ides.mathex" = ["resources/icon.ico", "resources/logo.png"]
+"shared.updater" = ["public/*.pem"]
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+skip-string-normalization = true
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MESC-Mathematica: Syntax & User Guide</title>
+    <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-panel: #2d2d2d;
+            --text-main: #d4d4d4;
+            --text-heading: #ffffff;
+            --accent: #007acc;
+            --accent-green: #4caf50;
+            --accent-orange: #ce9178;
+            --code-text: #dcdcaa;
+            --code-func: #569cd6;
+            --border: #3e3e42;
+        }
+
+        /* --- PREMIUM DARK SCROLLBAR --- */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+        ::-webkit-scrollbar-corner { background: var(--bg-primary); }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding: 30px;
+            max-width: 950px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--text-heading);
+            font-weight: 600;
+        }
+
+        h1 {
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 5px;
+            margin-top: 40px;
+            color: var(--accent-green);
+        }
+
+        .meta-info {
+            background-color: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 30px;
+        }
+
+        .meta-info p {
+            margin: 5px 0;
+            font-size: 0.95em;
+        }
+
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: var(--bg-secondary);
+            color: var(--code-text);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+
+        .func { color: var(--code-func); font-weight: bold; }
+        .str { color: var(--accent-orange); }
+
+        pre {
+            background-color: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            color: var(--text-main);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--bg-panel);
+            color: var(--text-heading);
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) { background-color: #222222; }
+
+        .note {
+            background-color: rgba(0, 122, 204, 0.1);
+            border-left: 4px solid var(--accent);
+            padding: 10px 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>MESC-Mathematica: Syntax & User Guide</h1>
+    
+    <div class="meta-info">
+        <p><strong>Platform:</strong> MESC-Mathematica IDE</p>
+        <p><strong>Description:</strong> A comprehensive reference guide for mathematical syntax, functions, and engine capabilities.</p>
+    </div>
+
+    <div class="note">
+        <strong>Execution Shortcut:</strong> To evaluate any cell in the notebook, press <code>Shift + Enter</code>.
+    </div>
+
+    <h2>1. Core Principles</h2>
+    <p>MESC-Mathematica strictly mirrors traditional Wolfram syntax conventions. Please keep the following golden rules in mind:</p>
+    <ul>
+        <li><strong>Capitalization:</strong> All built-in functions and constants begin with a capital letter (e.g., <code>Sin</code>, <code>Plot</code>, <code>Pi</code>).</li>
+        <li><strong>Square Brackets:</strong> Function arguments are <em>always</em> enclosed in square brackets <code>[ ]</code>, not parentheses. Example: <code>Cos[x]</code>.</li>
+        <li><strong>Curly Braces:</strong> Lists, vectors, matrices, and ranges are enclosed in curly braces <code>{ }</code>. Example: <code>{1, 2, 3}</code>.</li>
+        <li><strong>Parentheses:</strong> Used strictly for grouping mathematical operations. Example: <code>(x + 2) * y</code>.</li>
+    </ul>
+
+    <h2>2. Basic Mathematics & Constants</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Operation / Constant</th>
+                <th>Syntax</th>
+                <th>Example</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Addition / Subtraction</td><td><code>+</code> , <code>-</code></td><td><code>3 + 5 - 2</code></td></tr>
+            <tr><td>Multiplication</td><td><code>*</code> or space</td><td><code>3 * x</code> or <code>3 x</code></td></tr>
+            <tr><td>Division</td><td><code>/</code></td><td><code>x / y</code></td></tr>
+            <tr><td>Exponentiation</td><td><code>^</code></td><td><code>x^2</code></td></tr>
+            <tr><td>Square Root</td><td><span class="func">Sqrt</span><code>[x]</code></td><td><code>Sqrt[16]</code></td></tr>
+            <tr><td>Pi (&pi;)</td><td><code>Pi</code></td><td><code>Sin[Pi / 2]</code></td></tr>
+            <tr><td>Euler's Number (e)</td><td><code>E</code></td><td><code>E^(I * Pi)</code></td></tr>
+            <tr><td>Imaginary Unit (i)</td><td><code>I</code></td><td><code>3 + 4*I</code></td></tr>
+            <tr><td>Infinity (&infin;)</td><td><code>Infinity</code></td><td><code>Limit[1/x, x -> Infinity]</code></td></tr>
+        </tbody>
+    </table>
+
+    <h2>3. Algebra & Equation Solving</h2>
+    <p>Use double equals <code>==</code> to define mathematical equalities, and a single equals <code>=</code> to assign variables.</p>
+    
+<pre><code><span style="color: #6a9955;">(* Assigning an expression to a variable *)</span>
+eq = x^2 - 4 == 0
+
+<span style="color: #6a9955;">(* Solving the equation for x *)</span>
+<span class="func">Solve</span>[eq, x]
+
+<span style="color: #6a9955;">(* Expanding algebraic expressions *)</span>
+<span class="func">Expand</span>[(x + y)^3]
+
+<span style="color: #6a9955;">(* Simplifying complex expressions *)</span>
+<span class="func">Simplify</span>[Sin[x]^2 + Cos[x]^2]
+</code></pre>
+
+    <h2>4. Calculus</h2>
+    <p>MESC-Mathematica provides powerful symbolic calculus tools powered by the SymPy backend.</p>
+
+    <h3>Differentiation</h3>
+    <p>Use the <code>D</code> function. The syntax is <code>D[expression, variable]</code>.</p>
+<pre><code><span class="func">D</span>[x^3 + 2x^2, x]          <span style="color: #6a9955;">(* First derivative *)</span>
+<span class="func">D</span>[Sin[x], {x, 2}]         <span style="color: #6a9955;">(* Second derivative *)</span>
+</code></pre>
+
+    <h3>Integration</h3>
+    <p>Use the <code>Integrate</code> function. For definite integrals, provide a range list.</p>
+<pre><code><span style="color: #6a9955;">(* Indefinite Integral *)</span>
+<span class="func">Integrate</span>[x^2, x]
+
+<span style="color: #6a9955;">(* Definite Integral from 0 to Pi *)</span>
+<span class="func">Integrate</span>[Sin[x], {x, 0, Pi}]
+</code></pre>
+
+    <h3>Limits & Series</h3>
+<pre><code><span style="color: #6a9955;">(* Limits: Use an arrow -> for the approach *)</span>
+<span class="func">Limit</span>[Sin[x]/x, x -> 0]
+
+<span style="color: #6a9955;">(* Taylor/Maclaurin Series expansion up to order 5 *)</span>
+<span class="func">Series</span>[Exp[x], {x, 0, 5}]
+</code></pre>
+
+    <h2>5. Matrices & Linear Algebra</h2>
+    <p>Matrices are defined as lists of lists.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Function</th>
+                <th>Syntax</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Creation</td>
+                <td><code>m = {{a, b}, {c, d}}</code></td>
+                <td>Defines a 2x2 matrix.</td>
+            </tr>
+            <tr>
+                <td>Determinant</td>
+                <td><span class="func">Det</span><code>[m]</code></td>
+                <td>Calculates the determinant.</td>
+            </tr>
+            <tr>
+                <td>Inverse</td>
+                <td><span class="func">Inverse</span><code>[m]</code></td>
+                <td>Calculates the matrix inverse.</td>
+            </tr>
+            <tr>
+                <td>Eigenvalues</td>
+                <td><span class="func">Eigenvalues</span><code>[m]</code></td>
+                <td>Returns the eigenvalues of the matrix.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>6. Plotting & Graphics</h2>
+    <p>Visualization is fully native. You can easily generate 2D and 3D plots.</p>
+
+<pre><code><span style="color: #6a9955;">(* Standard 2D Plot *)</span>
+<span class="func">Plot</span>[Sin[x], {x, -10, 10}]
+
+<span style="color: #6a9955;">(* Plotting multiple functions together *)</span>
+<span class="func">Plot</span>[{Sin[x], Cos[x]}, {x, -Pi, Pi}]
+
+<span style="color: #6a9955;">(* 3D Surface Plot *)</span>
+<span class="func">Plot3D</span>[Sin[x] * Cos[y], {x, -5, 5}, {y, -5, 5}]
+</code></pre>
+
+    <h2>7. Interactive Manipulation</h2>
+    <p>The <code>Manipulate</code> function allows you to create highly interactive outputs with dynamic sliders, all processed natively without page-reloads.</p>
+
+<pre><code><span style="color: #6a9955;">(* Interactive Sine Wave changing frequency 'a' *)</span>
+<span class="func">Manipulate</span>[
+    <span class="func">Plot</span>[Sin[a * x], {x, 0, 10}], 
+    {a, 1, 5}
+]
+
+<span style="color: #6a9955;">(* Interactive 3D Plot changing phase 'p' *)</span>
+<span class="func">Manipulate</span>[
+    <span class="func">Plot3D</span>[Sin[x + p] * Cos[y], {x, -5, 5}, {y, -5, 5}], 
+    {p, 0, 2*Pi}
+]
+</code></pre>
+
+    <div class="note">
+        <strong>Tip:</strong> If you ever forget syntax during your workflow, use the <strong>Palettes</strong> located in the top toolbar to automatically inject common templates and symbols directly into your active cell!
+    </div>
+
+    <p style="text-align: center; margin-top: 40px; color: #888; font-size: 0.9em;">
+        <em>End of Syntax Guide.</em>
+    </p>
+
+</body>
+</html>

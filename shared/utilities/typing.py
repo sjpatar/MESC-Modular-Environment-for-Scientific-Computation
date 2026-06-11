@@ -1,0 +1,1 @@
+class MathexError(Exception): pass
