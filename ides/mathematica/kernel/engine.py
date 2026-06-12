@@ -127,6 +127,11 @@ class MathematicaBackend:
         try:
             import plotly.graph_objects as go
             import numpy as np
+            import os
+            import tempfile
+            import shutil
+            import uuid
+            import urllib.request
             
             # Let SymPy handle the parsing of the math expression and ranges safely
             kwargs['show'] = False
@@ -172,9 +177,49 @@ class MathematicaBackend:
                 )
             )
             
-            # Convert to standalone HTML and encode as Base64 Data URI
-            raw_html = fig.to_html(full_html=False, include_plotlyjs=False)
-            b64_html = base64.b64encode(raw_html.encode('utf-8')).decode('utf-8')
+            # --- OFFLINE-FIRST PHYSICAL FILE ARCHITECTURE ---
+            temp_dir = os.path.join(tempfile.gettempdir(), "mathex_plotly_env")
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            # 1. Securely resolve local project paths
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
+            source_plotly = os.path.join(project_root, "resources", "plotly", "plotly.min.js")
+            temp_plotly = os.path.join(temp_dir, "plotly.min.js")
+            
+            # 2. Mirror JS to establish Same-Origin Policy
+            if not os.path.exists(temp_plotly) and os.path.exists(source_plotly):
+                try:
+                    shutil.copy2(source_plotly, temp_plotly)
+                except Exception:
+                    pass
+            
+            # 3. Save physical HTML file
+            plot_id = str(uuid.uuid4())
+            html_path = os.path.join(temp_dir, f"math3d_{plot_id}.html")
+            
+            raw_html = fig.to_html(full_html=True, include_plotlyjs="plotly.min.js")
+            
+            # [NEW] Inject Canvas2D patch to suppress Chromium performance warnings
+            canvas_patch = """<script>
+            const _originalGetContext = HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext = function(type, attributes) {
+                if (type === '2d') {
+                    attributes = attributes || {};
+                    attributes.willReadFrequently = true;
+                }
+                return _originalGetContext.call(this, type, attributes);
+            };
+            </script>"""
+            raw_html = raw_html.replace("<head>", f"<head>\n{canvas_patch}")
+
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(raw_html)
+                
+            # 4. Generate OS-agnostic file:// URI
+            file_uri = urllib.request.pathname2url(html_path)
+            if not file_uri.startswith("file:"):
+                file_uri = "file:" + file_uri
             
             html = f"""
             <div style='
@@ -189,7 +234,7 @@ class MathematicaBackend:
                 border-radius: 4px; 
                 background-color: #1e1e1e;
             '>
-                <iframe src='data:text/html;base64,{b64_html}' style='width: 100%; height: 100%; border: none;'></iframe>
+                <iframe src='{file_uri}' style='width: 100%; height: 100%; border: none;'></iframe>
             </div>
             """
             return _HtmlResult(html)
