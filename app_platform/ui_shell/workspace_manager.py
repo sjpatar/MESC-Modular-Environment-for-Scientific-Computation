@@ -242,3 +242,28 @@ class WorkspaceWidget(QWidget):
         
         # 3. Emit signal so App can update the real Kernel Session
         self.variable_edited.emit(name, new_val)
+
+    def highlight_rows(self, row_indices):
+        """
+        Highlight visible workspace rows that correspond to selected plot indices.
+        Indices are zero-based, matching Plotly pointIndex/customdata semantics.
+        """
+        try:
+            indices = sorted({int(idx) for idx in row_indices if idx is not None})
+        except Exception:
+            indices = []
+
+        self.table.clearSelection()
+        if not indices:
+            return
+
+        row_count = self.table.rowCount()
+        for idx in indices:
+            if 0 <= idx < row_count:
+                self.table.selectRow(idx)
+
+        first = next((idx for idx in indices if 0 <= idx < row_count), None)
+        if first is not None:
+            item = self.table.item(first, 0)
+            if item is not None:
+                self.table.scrollToItem(item)

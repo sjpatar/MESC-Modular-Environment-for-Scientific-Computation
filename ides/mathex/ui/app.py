@@ -4,14 +4,15 @@ import ctypes
 import time
 import re  
 import io
+import threading
 import traceback
 from contextlib import redirect_stdout
 from PySide6.QtWidgets import (
     QMainWindow, QDockWidget, QApplication, QLabel, QWidget,
-    QHBoxLayout, QPushButton, QStyle, QFileDialog
+    QHBoxLayout, QVBoxLayout, QPushButton, QStyle, QFileDialog, QDialog
 )
 from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt, QTimer, QSettings, QSize, QEvent 
+from PySide6.QtCore import Qt, QTimer, QSettings, QSize, QEvent, QThread, Signal, Slot
 
 # --- Mathex Internal Imports ---
 # [FIX] KernelSession & PlotEngine removed from top-level to prevent UI freezing
@@ -36,7 +37,7 @@ PLOT_COMMAND_PATTERN = re.compile(
     r"\b("
     r"plot|plot3|scatter|scatter3|surf|mesh|contour|contour3|contourf|contourf3|"
     r"quiver|quiver3|streamline|imagesc|imshow|heatmap|bar|barh|hist|histogram|"
-    r"pie|stem|stairs|boxplot|gscatter|plotmatrix|subplot|figure|clf|cla|hold|"
+    r"pie|stem|stairs|boxplot|gscatter|plotmatrix|subplot|figure|clf|cla|hold|brush|"
     r"grid|axis|view|shading|lighting|camlight|colorbar|legend|xlabel|ylabel|"
     r"zlabel|xlim|ylim|zlim|animatedline|addpoints|clearpoints|drawnow|"
     r"drawnowlimit|comet|comet3|getframe|movie"
@@ -127,7 +128,110 @@ class DockTitleBar(QWidget):
                 self.dock.restoreGeometry(self._normal_geometry)
             self._is_fullscreen = False
 
+class DetachedPlotDialog(QDialog):
+    """
+    Persistent top-level figure window.
+
+    Closing the window hides it so future figure(N) calls reuse the same
+    Matplotlib state, toolbar history, and window placement.
+    """
+    plot_selection_changed = Signal(list)
+
+    def __init__(self, fig_id: int, parent=None):
+        super().__init__(parent)
+        from shared.plotting_engine.mpl_backend import PlotWidget
+
+        self.fig_id = int(fig_id)
+        self._active_backend = "mpl"
+        self.plotly_widget = None
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, False)
+        self.setWindowTitle(f"Figure {self.fig_id}")
+        self.resize(900, 650)
+
+        self.backend_stack = QWidget(self)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.canvas_widget = PlotWidget(parent=self)
+        layout.addWidget(self.canvas_widget)
+
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
+
+    def get_canvas(self):
+        return self.canvas_widget
+
+    @property
+    def figure(self):
+        return self.canvas_widget.figure
+
+    @property
+    def canvas(self):
+        return self.canvas_widget.canvas
+
+    def configure_layout(self, is_3d: bool):
+        return self.canvas_widget.configure_layout(is_3d=is_3d)
+
+    def new_axes(self, projection=None):
+        self.switch_backend("mpl")
+        return self.canvas_widget.new_axes(projection=projection)
+
+    def clear(self):
+        self.switch_backend("mpl")
+        return self.canvas_widget.clear()
+
+    def render(self, *, immediate: bool = False):
+        if self._active_backend == "mpl":
+            return self.canvas_widget.render(immediate=immediate)
+
+    def ginput(self, n=1, **kwargs):
+        self.switch_backend("mpl")
+        return self.canvas_widget.ginput(n=n, **kwargs)
+
+    def _apply_axes_defaults(self, ax):
+        return self.canvas_widget._apply_axes_defaults(ax)
+
+    def get_plotly_widget(self):
+        if self.plotly_widget is None:
+            from shared.plotting_engine.plotly_backend import PlotlyWidget
+            self.plotly_widget = PlotlyWidget(parent=self)
+            self.plotly_widget.selection_changed.connect(self.plot_selection_changed.emit)
+            self.layout().addWidget(self.plotly_widget)
+            self.plotly_widget.hide()
+        return self.plotly_widget
+
+    def switch_backend(self, target: str):
+        target = str(target or "mpl").lower()
+        if target in ("matplotlib", "mpl"):
+            self._active_backend = "mpl"
+            self.canvas_widget.show()
+            if self.plotly_widget is not None:
+                self.plotly_widget.hide()
+            return self.canvas_widget
+
+        if target == "plotly":
+            widget = self.get_plotly_widget()
+            self._active_backend = "plotly"
+            self.canvas_widget.hide()
+            widget.show()
+            return widget
+
+        raise ValueError("Backend must be 'matplotlib', 'mpl', or 'plotly'")
+
+    def render_figure(self, fig):
+        widget = self.switch_backend("plotly")
+        widget.render_figure(fig)
+        return widget
+
+    def set_brush_mode(self, mode: str = "select"):
+        widget = self.get_plotly_widget()
+        widget.set_brush_mode(mode)
+
 class MathexApp(QMainWindow):
+    _figure_create_requested = Signal(int, str)
+
     def __init__(self):
         super().__init__()
         # Unify settings under the parent MESC environment
@@ -152,6 +256,12 @@ class MathexApp(QMainWindow):
         self.workspace = WorkspaceWidget()
         self.plot_dock = PlotDock()
         self.file_browser = FileBrowser()
+        self._detached_plot_windows = {}
+        self._pending_plot_windows = {}
+        self._pending_plot_lock = threading.Lock()
+        self._plot_window_policy = "docked"
+        self._detached_plot_order = {}
+        self._figure_create_requested.connect(self._create_detached_figure_on_ui)
 
         self.setCentralWidget(self.editor)
 
@@ -183,6 +293,7 @@ class MathexApp(QMainWindow):
         self.workspace.save_requested.connect(self._save_workspace)
         self.workspace.load_requested.connect(self._load_workspace)
         self.workspace.variable_edited.connect(self._sync_variable_to_kernel)
+        self.plot_dock.plot_selection_changed.connect(self._on_plot_selection_changed)
 
         self.menu = MainMenuBar(self)
         self.setMenuBar(self.menu)
@@ -243,11 +354,12 @@ class MathexApp(QMainWindow):
         from ides.mathex.kernel.session import KernelSession
         from shared.plotting_engine.engine import PlotEngine
         from shared.plotting_engine.figure import init_ui_widget
+        from shared.plotting_engine.state import plot_manager
 
         # Setup Plotting First
         PlotEngine.initialize("ui")
-        pw = self.plot_dock.get_canvas()
-        init_ui_widget(pw)
+        init_ui_widget(self.plot_dock)
+        plot_manager.set_figure_creator(self._ensure_plot_figure)
 
         # Launch the heavy kernel
         self.session = KernelSession()
@@ -262,6 +374,85 @@ class MathexApp(QMainWindow):
         self.kernel_led.setStyleSheet("color: #98c379;")
         self.status_label.setText(ml_tr("ready"))
         self.console.write_output("Mathex Ready.")
+
+    def _ensure_plot_figure(self, fig_id: int = 1, *, backend: str = "mpl"):
+        """
+        Figure factory registered with PlotStateManager.
+
+        In docked mode, every figure id maps to the main PlotDock. In detached
+        mode, every figure id maps to its own persistent dialog.
+        """
+        fig_id = int(fig_id or 1)
+        if self._plot_window_policy == "docked":
+            widget = self.plot_dock
+            from shared.plotting_engine.state import plot_manager
+            plot_manager.bind_figure(fig_id, widget)
+            return widget
+
+        if QThread.currentThread() is self.thread():
+            return self._ensure_detached_plot_window(fig_id, backend=backend)
+
+        ready = threading.Event()
+        result = {}
+        with self._pending_plot_lock:
+            self._pending_plot_windows[fig_id] = (ready, result)
+
+        self._figure_create_requested.emit(fig_id, backend)
+        if not ready.wait(timeout=3.0):
+            raise RuntimeError(f"Timed out creating Figure {fig_id}.")
+
+        if result.get("error") is not None:
+            raise RuntimeError(f"Could not create Figure {fig_id}: {result['error']}")
+
+        widget = result.get("widget")
+        if widget is None:
+            raise RuntimeError(f"Could not create Figure {fig_id}.")
+        return widget
+
+    @Slot(int, str)
+    def _create_detached_figure_on_ui(self, fig_id: int, backend: str = "mpl"):
+        try:
+            widget = self._ensure_detached_plot_window(fig_id, backend=backend)
+            error = None
+        except Exception as exc:
+            widget = None
+            error = exc
+
+        with self._pending_plot_lock:
+            pending = self._pending_plot_windows.pop(int(fig_id), None)
+
+        if pending is not None:
+            ready, result = pending
+            result["widget"] = widget
+            result["error"] = error
+            ready.set()
+
+    def _ensure_detached_plot_window(self, fig_id: int, *, backend: str = "mpl"):
+        from shared.plotting_engine.state import plot_manager
+
+        fig_id = int(fig_id)
+        dialog = self._detached_plot_windows.get(fig_id)
+        if dialog is None:
+            dialog = DetachedPlotDialog(fig_id, parent=self)
+            dialog.plot_selection_changed.connect(self._on_plot_selection_changed)
+            self._detached_plot_windows[fig_id] = dialog
+
+        dialog.show()
+        self._position_detached_plot_window(fig_id, dialog)
+        dialog.raise_()
+        dialog.activateWindow()
+
+        dialog.switch_backend(backend)
+        plot_manager.bind_figure(fig_id, dialog)
+        return dialog
+
+    def _position_detached_plot_window(self, fig_id: int, dialog: QDialog):
+        if fig_id not in self._detached_plot_order:
+            self._detached_plot_order[fig_id] = len(self._detached_plot_order)
+
+        offset = self._detached_plot_order[fig_id] * 34
+        base = self.frameGeometry().topLeft()
+        dialog.move(base.x() + 120 + offset, base.y() + 90 + offset)
 
     def changeEvent(self, event):
         if event.type() == QEvent.Type.LanguageChange:
@@ -414,6 +605,8 @@ class MathexApp(QMainWindow):
         if self.editor.current_editor():
             self.editor.current_editor().clear_errors()
 
+        self._prepare_plot_windows_for_run(code)
+
         self._busy = True
         self._current_task_name = task_name
 
@@ -447,6 +640,50 @@ class MathexApp(QMainWindow):
             self.status_label.setText(ml_tr("ready_error"))
             self.kernel_led.setStyleSheet("color: #e06c75;")
 
+    def _prepare_plot_windows_for_run(self, code: str):
+        has_multiple_figures = self._script_requests_multiple_figures(code)
+        self._plot_window_policy = "detached" if has_multiple_figures else "docked"
+        self._detached_plot_order = {}
+
+        try:
+            import importlib
+            from shared.plotting_engine.state import plot_manager
+            figure_module = importlib.import_module("shared.plotting_engine.figure")
+
+            plot_manager.reset_figures()
+            reset_registry = getattr(figure_module, "reset_registry", None)
+            if callable(reset_registry):
+                reset_registry(include_ui=not has_multiple_figures)
+
+            if has_multiple_figures:
+                self.plot_dock.switch_backend("mpl")
+                for dialog in self._detached_plot_windows.values():
+                    dialog.hide()
+            else:
+                for dialog in self._detached_plot_windows.values():
+                    dialog.hide()
+                self.plot_dock.switch_backend("mpl")
+                plot_manager.bind_figure(1, self.plot_dock)
+        except Exception:
+            pass
+
+    def _script_requests_multiple_figures(self, code: str) -> bool:
+        cleaned_lines = []
+        for line in (code or "").splitlines():
+            cleaned_lines.append(line.split("%", 1)[0])
+        cleaned = "\n".join(cleaned_lines)
+
+        figure_calls = []
+        for match in re.finditer(r"\bfigure\s*\(\s*([0-9]+)?", cleaned, flags=re.IGNORECASE):
+            value = match.group(1)
+            figure_calls.append(int(value) if value else 1)
+
+        for match in re.finditer(r"(?im)^\s*figure(?!\s*\()\s*([0-9]+)?\b", cleaned):
+            value = match.group(1)
+            figure_calls.append(int(value) if value else 1)
+
+        return len(set(figure_calls)) > 1
+
     def _should_run_on_ui_thread(self, code: str) -> bool:
         return bool(PLOT_COMMAND_PATTERN.search(code or ""))
 
@@ -478,7 +715,8 @@ class MathexApp(QMainWindow):
         self.workspace.update_table(self.session.globals)
 
     def _on_execution_finished(self):
-        self._refresh_plot_dock()
+        if self._plot_window_policy == "docked":
+            self._refresh_plot_dock()
         if self._exec_start is not None:
             self.time_label.setText(f"{time.perf_counter() - self._exec_start:.3f} s")
         else:
@@ -490,7 +728,9 @@ class MathexApp(QMainWindow):
 
         try:
             from shared.plotting_engine.state import plot_manager
-            if plot_manager.widget: plot_manager.widget.render(immediate=True)
+            for widget in plot_manager.widgets:
+                if hasattr(widget, "render"):
+                    widget.render(immediate=True)
         except Exception: pass
 
         self._busy = False
@@ -507,6 +747,13 @@ class MathexApp(QMainWindow):
 
     def _sync_variable_to_kernel(self, name, value):
         if self.session: self.session.globals[name] = value
+
+    def _on_plot_selection_changed(self, indices):
+        try:
+            self.workspace.highlight_rows(indices)
+            self.selection_label.setText(f"Plot Sel {len(indices)}")
+        except Exception:
+            pass
 
     def _clear_workspace(self):
         if not self.session: return
@@ -549,6 +796,12 @@ class MathexApp(QMainWindow):
             from shared.plotting_engine.engine import PlotEngine
             PlotEngine.shutdown()
         except Exception: pass
+        for dialog in list(getattr(self, "_detached_plot_windows", {}).values()):
+            try:
+                dialog.hide()
+                dialog.deleteLater()
+            except Exception:
+                pass
         event.accept()
 
 def run():

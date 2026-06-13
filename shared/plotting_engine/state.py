@@ -11,7 +11,7 @@ import time
 import threading  # [FIX] Required for animation synchronization
 import numpy as np
 import mpl_toolkits.mplot3d  # [FIX] Essential: Registers '3d' projection
-from typing import Dict, Optional, Union, Callable
+from typing import Dict, Optional, Union, Callable, Any
 
 
 BoolLike = Union[bool, str]
@@ -49,7 +49,7 @@ class PlotStateManager:
     _dirty: bool
     _last_draw_request: float
     _immediate_draw: bool
-    _figure_creator: Optional[Callable[[], None]]
+    _figure_creator: Optional[Callable[..., Any]]
     _draw_event: threading.Event  # [FIX] Sync event
 
     def __new__(cls):
@@ -72,36 +72,49 @@ class PlotStateManager:
     # ------------------------------------------------------------
     # Figure management
     # ------------------------------------------------------------
-    def bind_figure(self, fig_id: int, widget) -> None:
+    def bind_figure(self, fig_id: int, widget, *, activate: bool = True) -> None:
         self._figures[fig_id] = _FigureState(widget)
-        self._current_fig_id = fig_id
+        if activate:
+            self._current_fig_id = fig_id
         self._mark_dirty()
 
-    def set_figure_creator(self, callback: Callable[[], None]) -> None:
+    def unbind_figure(self, fig_id: int) -> None:
+        self._figures.pop(fig_id, None)
+        if self._current_fig_id == fig_id:
+            self._current_fig_id = 1 if 1 in self._figures else None
+        self._mark_dirty()
+
+    def reset_figures(self) -> None:
+        self._figures.clear()
+        self._current_fig_id = None
+        self._mark_dirty()
+
+    def set_figure_creator(self, callback: Callable[..., Any]) -> None:
         """Register a callback to create a figure if one is missing."""
         self._figure_creator = callback
 
-    def figure(self, fig_id: Optional[int] = None):
+    def figure(self, fig_id: Optional[int] = None, *, backend: str = "mpl"):
         if fig_id is None:
             if self._current_fig_id is None:
-                if self._figure_creator:
-                    self._figure_creator()
-                if self._current_fig_id is None:
-                    raise RuntimeError("No figure bound.")
+                self._ensure_figure_bound(1, backend=backend)
             return self._figures[self._current_fig_id].widget.figure
 
-        if fig_id not in self._figures:
-            raise RuntimeError(f"Figure {fig_id} not bound.")
+        fig_id = int(fig_id)
+        self._ensure_figure_bound(fig_id, backend=backend)
 
         self._current_fig_id = fig_id
         return self._figures[fig_id].widget.figure
 
+    def activate_figure(self, fig_id: int, *, backend: str = "mpl"):
+        """Select a figure and return its backend widget."""
+        fig_id = int(fig_id)
+        self._ensure_figure_bound(fig_id, backend=backend)
+        self._current_fig_id = fig_id
+        return self._figures[fig_id].widget
+
     def gcf(self):
         if self._current_fig_id is None:
-            if self._figure_creator:
-                self._figure_creator()
-            if self._current_fig_id is None:
-                raise RuntimeError("No current figure.")
+            self._ensure_figure_bound(1)
         return self._figures[self._current_fig_id].widget.figure
 
     # ------------------------------------------------------------
@@ -309,13 +322,14 @@ class PlotStateManager:
         fig = self._figures.get(self._current_fig_id)
         return fig.widget if fig else None
 
+    @property
+    def widgets(self):
+        return [state.widget for state in self._figures.values()]
+
     def set_widget(self, widget):
         if widget is None:
             return
-        fig_id = id(widget)
-        if fig_id not in self._figures:
-            self.bind_figure(fig_id, widget)
-        self._current_fig_id = fig_id
+        self.bind_figure(1, widget, activate=self._current_fig_id is None)
 
     # ------------------------------------------------------------
     # Axes-local state setters
@@ -438,11 +452,25 @@ class PlotStateManager:
 
     def _get_fig_state(self) -> _FigureState:
         if self._current_fig_id is None:
-            if self._figure_creator:
-                self._figure_creator()
-            if self._current_fig_id is None:
-                raise RuntimeError("No active figure.")
+            self._ensure_figure_bound(1)
         return self._figures[self._current_fig_id]
+
+    def _ensure_figure_bound(self, fig_id: int, *, backend: str = "mpl") -> None:
+        if fig_id in self._figures:
+            return
+
+        if self._figure_creator is not None:
+            widget = None
+            try:
+                widget = self._figure_creator(fig_id, backend=backend)
+            except TypeError:
+                widget = self._figure_creator()
+
+            if widget is not None and fig_id not in self._figures:
+                self.bind_figure(fig_id, widget)
+
+        if fig_id not in self._figures:
+            raise RuntimeError(f"Figure {fig_id} not bound.")
 
 
 plot_manager = PlotStateManager()

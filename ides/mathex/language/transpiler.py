@@ -10,7 +10,7 @@ from .ast_nodes import (
 
 # List of commands that should be auto-called if found as bare variables
 AUTO_CALL_COMMANDS = {
-    'clc', 'clear', 'clf', 'cla', 'hold', 'grid', 'box',
+    'clc', 'clear', 'clf', 'cla', 'hold', 'grid', 'box', 'brush',
     'tic', 'toc', 'who', 'whos', 'pwd', 'drawnow', 
     'axis', 'shading', 'lighting', 'view', 'figure', 'shg',
     # --- NEW: Assamese Auto-Call Commands ---

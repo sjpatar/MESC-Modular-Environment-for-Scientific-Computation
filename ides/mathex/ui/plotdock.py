@@ -13,9 +13,9 @@ Improvements in this version:
     (avoids circular import during app/module initialization).
 """
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFrame, QSizePolicy
+    QWidget, QVBoxLayout, QFrame, QSizePolicy, QStackedWidget
 )
-from PySide6.QtCore import Qt, QEvent, QTimer
+from PySide6.QtCore import Qt, QEvent, QTimer, Signal
 
 # Import the backend widget (Matplotlib canvas)
 from shared.plotting_engine.mpl_backend import PlotWidget
@@ -29,6 +29,8 @@ class PlotDock(QWidget):
       [ optional top bar ]
       [ canvas container -> PlotWidget ]
     """
+    plot_selection_changed = Signal(list)
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -53,11 +55,16 @@ class PlotDock(QWidget):
         self.canvas_layout.setContentsMargins(0, 0, 0, 0)
         self.canvas_layout.setSpacing(0)
 
+        self.backend_stack = QStackedWidget(self.canvas_container)
+        self.canvas_layout.addWidget(self.backend_stack)
+
         # 4. The actual Matplotlib widget
         self.canvas_widget = PlotWidget(parent=self.canvas_container)
+        self.plotly_widget = None
+        self._active_backend = "mpl"
         # ensure the widget will expand to fill the container
         self.canvas_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.canvas_layout.addWidget(self.canvas_widget)
+        self.backend_stack.addWidget(self.canvas_widget)
 
         # Add container to main layout
         self.layout.addWidget(self.canvas_container)
@@ -66,7 +73,7 @@ class PlotDock(QWidget):
         try:
             # import here to avoid module-level circular imports
             from shared.plotting_engine.state import plot_manager
-            plot_manager.set_widget(self.canvas_widget)
+            plot_manager.set_widget(self)
         except Exception:
             # non-fatal: app will register later when ready
             pass
@@ -86,14 +93,16 @@ class PlotDock(QWidget):
     def refresh_plot(self):
         try:
             from shared.plotting_engine.state import plot_manager
-            if getattr(plot_manager, "widget", None) is not self.canvas_widget:
-                plot_manager.set_widget(self.canvas_widget)
+            if getattr(plot_manager, "widget", None) is not self:
+                plot_manager.set_widget(self)
             QTimer.singleShot(0, self._draw_visible_canvas)
         except Exception:
             pass
 
     def _draw_visible_canvas(self):
         if not self.isVisible():
+            return
+        if self._active_backend != "mpl":
             return
         try:
             if hasattr(self.canvas_widget, "refresh_canvas"):
@@ -106,6 +115,69 @@ class PlotDock(QWidget):
     def get_canvas(self):
         """Returns the internal PlotWidget for external use."""
         return self.canvas_widget
+
+    @property
+    def figure(self):
+        return self.canvas_widget.figure
+
+    @property
+    def canvas(self):
+        return self.canvas_widget.canvas
+
+    def configure_layout(self, is_3d: bool):
+        return self.canvas_widget.configure_layout(is_3d=is_3d)
+
+    def new_axes(self, projection=None):
+        self.switch_backend("mpl")
+        return self.canvas_widget.new_axes(projection=projection)
+
+    def clear(self):
+        self.switch_backend("mpl")
+        return self.canvas_widget.clear()
+
+    def render(self, *, immediate: bool = False):
+        if self._active_backend == "mpl":
+            return self.canvas_widget.render(immediate=immediate)
+
+    def ginput(self, n=1, **kwargs):
+        self.switch_backend("mpl")
+        return self.canvas_widget.ginput(n=n, **kwargs)
+
+    def _apply_axes_defaults(self, ax):
+        return self.canvas_widget._apply_axes_defaults(ax)
+
+    def get_plotly_widget(self):
+        if self.plotly_widget is None:
+            from shared.plotting_engine.plotly_backend import PlotlyWidget
+            self.plotly_widget = PlotlyWidget(parent=self.canvas_container)
+            self.plotly_widget.selection_changed.connect(self.plot_selection_changed.emit)
+            self.backend_stack.addWidget(self.plotly_widget)
+        return self.plotly_widget
+
+    def switch_backend(self, target: str):
+        target = str(target or "mpl").lower()
+        if target in ("matplotlib", "mpl"):
+            self._active_backend = "mpl"
+            self.backend_stack.setCurrentWidget(self.canvas_widget)
+            self.refresh_plot()
+            return self.canvas_widget
+
+        if target == "plotly":
+            widget = self.get_plotly_widget()
+            self._active_backend = "plotly"
+            self.backend_stack.setCurrentWidget(widget)
+            return widget
+
+        raise ValueError("Backend must be 'matplotlib', 'mpl', or 'plotly'")
+
+    def render_figure(self, fig):
+        widget = self.switch_backend("plotly")
+        widget.render_figure(fig)
+        return widget
+
+    def set_brush_mode(self, mode: str = "select"):
+        widget = self.get_plotly_widget()
+        widget.set_brush_mode(mode)
 
     def set_toolbar_visible(self, visible: bool):
         """Toggle the top toolbar area (keeps the top_bar placeholder in sync)."""

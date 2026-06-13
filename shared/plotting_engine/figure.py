@@ -46,7 +46,7 @@ def init_ui_widget(widget: PlotWidget):
     global _ui_widget
     _ui_widget = widget
     _figures[1] = widget
-    plot_manager.set_widget(widget)
+    plot_manager.bind_figure(1, widget)
 
 
 # ------------------------------------------------------------------
@@ -82,21 +82,22 @@ def _activate(num: int):
     """
     global _current
 
-    if num == 1:
-        _ensure_figure_1()
-    else:
-        if num not in _figures:
-            # [FIX] Thread-Safety & UI Routing
-            # Creating QWidgets from a background KernelWorker thread causes PySide6 
-            # to fail silently. To ensure plots appear properly in the main plot window, 
-            # we safely alias all requested figures back to the UI widget if it exists.
-            if _ui_widget is not None:
-                _figures[num] = _ui_widget
-            else:
-                _figures[num] = _create_widget()
+    try:
+        _figures[num] = plot_manager.activate_figure(num)
+    except RuntimeError:
+        if num == 1:
+            _ensure_figure_1()
+        elif num not in _figures:
+            _figures[num] = _create_widget()
 
     _current = num
-    plot_manager.set_widget(_figures[num])
+    plot_manager.bind_figure(num, _figures[num])
+
+
+def reset_registry(*, include_ui: bool = True) -> None:
+    _figures.clear()
+    if include_ui and _ui_widget is not None:
+        _figures[1] = _ui_widget
 
 # ------------------------------------------------------------------
 # Auto-Creation Hook
@@ -260,6 +261,7 @@ def close(target: Union[int, str, None] = None):
                 continue
             
             w = _figures.pop(n, None)
+            plot_manager.unbind_figure(n)
             # [FIX] Protect the main UI widget from destruction if it was aliased
             if w and w is not _ui_widget:
                 try:
@@ -283,6 +285,7 @@ def close(target: Union[int, str, None] = None):
         _ensure_figure_1() 
         clf()
     elif w and w is not _ui_widget:
+        plot_manager.unbind_figure(n)
         # [FIX] Protect the main UI widget from destruction if it was aliased
         try:
             if hasattr(w, "close"): w.close() 

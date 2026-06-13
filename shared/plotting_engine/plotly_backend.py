@@ -1,10 +1,26 @@
 import os
 import shutil
 import tempfile
+import json
 import plotly.graph_objects as go
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QApplication
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QUrl, QObject, Signal, Slot
+from PySide6.QtWebChannel import QWebChannel
+
+
+class _PlotlySelectionBridge(QObject):
+    selection_received = Signal(list)
+
+    @Slot(str)
+    def selectionChanged(self, payload: str):
+        try:
+            data = json.loads(payload or "{}")
+            indices = data.get("indices", [])
+            clean = sorted({int(idx) for idx in indices if idx is not None})
+        except Exception:
+            clean = []
+        self.selection_received.emit(clean)
 
 class PlotlyWidget(QWidget):
     """
@@ -12,6 +28,9 @@ class PlotlyWidget(QWidget):
     Engineered to bypass Chromium cross-origin policies by using physical temp files
     and mirroring the JavaScript library into the same origin directory.
     """
+    selection_changed = Signal(list)
+    _brush_mode_requested = Signal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.layout = QVBoxLayout(self)
@@ -21,6 +40,13 @@ class PlotlyWidget(QWidget):
         # The web view that will run the Plotly Javascript
         self.browser = QWebEngineView(self)
         self.layout.addWidget(self.browser)
+
+        self._selection_bridge = _PlotlySelectionBridge(self)
+        self._selection_bridge.selection_received.connect(self.selection_changed.emit)
+        self._web_channel = QWebChannel(self.browser.page())
+        self._web_channel.registerObject("mathexPlotBridge", self._selection_bridge)
+        self.browser.page().setWebChannel(self._web_channel)
+        self._brush_mode_requested.connect(self._apply_brush_mode)
         
         # Create a dedicated temp directory for Mathex plots to ensure Same-Origin Policy
         self._temp_dir = os.path.join(tempfile.gettempdir(), "mathex_plotly_env")
@@ -74,10 +100,15 @@ class PlotlyWidget(QWidget):
                 print(f"Error mirroring Plotly JS: {e}")
         
         # 2. Tell Plotly to link using a pure relative filename
-        raw_html = fig.to_html(include_plotlyjs="plotly.min.js", full_html=True)
+        raw_html = fig.to_html(
+            include_plotlyjs="plotly.min.js",
+            full_html=True,
+            post_script=self._selection_post_script(),
+        )
         
         # 3. Inject Canvas2D patch to suppress Chromium performance warnings
-        canvas_patch = """<script>
+        canvas_patch = """<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+        <script>
         const _originalGetContext = HTMLCanvasElement.prototype.getContext;
         HTMLCanvasElement.prototype.getContext = function(type, attributes) {
             if (type === '2d') {
@@ -100,3 +131,83 @@ class PlotlyWidget(QWidget):
         """Clears the current plot."""
         if hasattr(self, 'browser') and self.browser is not None:
             self.browser.setHtml("<html><body style='background-color: #1e1e1e;'></body></html>")
+
+    def set_brush_mode(self, mode: str = "select"):
+        self._brush_mode_requested.emit(str(mode or "select").lower())
+
+    @Slot(str)
+    def _apply_brush_mode(self, mode: str):
+        if not hasattr(self, 'browser') or self.browser is None:
+            return
+
+        dragmode = {
+            "on": "select",
+            "select": "select",
+            "rect": "select",
+            "rectangle": "select",
+            "lasso": "lasso",
+            "off": "zoom",
+            "false": "zoom",
+            "0": "zoom",
+            "pan": "pan",
+            "zoom": "zoom",
+        }.get(str(mode or "select").lower(), "select")
+
+        script = f"""
+        (function() {{
+            const plots = document.querySelectorAll('.plotly-graph-div');
+            plots.forEach(function(plot) {{
+                if (window.Plotly && plot) {{
+                    Plotly.relayout(plot, {{dragmode: '{dragmode}'}});
+                }}
+            }});
+        }})();
+        """
+        self.browser.page().runJavaScript(script)
+
+    def _selection_post_script(self) -> str:
+        return """
+        (function() {
+            const plot = document.getElementById('{plot_id}');
+            if (!plot) return;
+
+            function normalizeIndex(point) {
+                let idx = point.customdata;
+                if (Array.isArray(idx)) idx = idx[0];
+                if (idx === undefined || idx === null) idx = point.pointIndex;
+                if (idx === undefined || idx === null) idx = point.pointNumber;
+                const numberValue = Number(idx);
+                return Number.isFinite(numberValue) ? numberValue : null;
+            }
+
+            function sendSelection(points) {
+                const indices = [];
+                (points || []).forEach(function(point) {
+                    const idx = normalizeIndex(point);
+                    if (idx !== null) indices.push(idx);
+                });
+
+                const payload = JSON.stringify({ indices: indices });
+                if (window.mathexPlotBridge) {
+                    window.mathexPlotBridge.selectionChanged(payload);
+                }
+            }
+
+            function bindBridge() {
+                if (typeof QWebChannel === 'undefined' || !window.qt || !qt.webChannelTransport) {
+                    return;
+                }
+                new QWebChannel(qt.webChannelTransport, function(channel) {
+                    window.mathexPlotBridge = channel.objects.mathexPlotBridge;
+                });
+            }
+
+            bindBridge();
+            plot.on('plotly_selected', function(eventData) {
+                sendSelection(eventData ? eventData.points : []);
+            });
+            plot.on('plotly_deselect', function() {
+                sendSelection([]);
+            });
+        })();
+        """

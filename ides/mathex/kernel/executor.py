@@ -70,6 +70,7 @@ def _inject_matlab_polyfills():
     By binding to `builtins`, these survive the user's `clear;` command!
     """
     import numpy as np
+    import shared.plotting_engine as _plt_mod
     from shared.plotting_engine.state import plot_manager
     
     # 1. Constants & Core Builtins (Indestructible by 'clear')
@@ -138,6 +139,7 @@ def _inject_matlab_polyfills():
     builtins.zlabel = _zlabel
     builtins.shading = _shading
     builtins.colormap = _colormap
+    builtins.brush = getattr(_plt_mod, "brush", lambda *args, **kwargs: None)
 
 # -----------------------------------------------------------
 # MAIN EXECUTOR 

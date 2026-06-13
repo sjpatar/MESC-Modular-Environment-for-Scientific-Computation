@@ -73,6 +73,8 @@ from .figure import (
     figure, gcf, clf, close, closeall
 )
 
+from .router import smart_plot, UniversalPlotRouter
+
 
 # ============================================================
 # MATLAB-STYLE CONVENIENCE WRAPPERS
@@ -83,6 +85,33 @@ def hold(mode="on"):
     hold on / hold off
     """
     plot_manager.hold(mode)
+
+
+def brush(mode="on"):
+    """
+    brush on / brush off / brush lasso
+
+    Enables Plotly rectangle/lasso selection on the active figure surface.
+    Matplotlib figures ignore this command gracefully.
+    """
+    target = str(mode or "on").lower()
+    widget = plot_manager.widget
+    if widget is None:
+        try:
+            plot_manager.activate_figure(1, backend="plotly")
+            widget = plot_manager.widget
+        except Exception:
+            return target
+
+    if hasattr(widget, "set_brush_mode"):
+        widget.set_brush_mode(target)
+    elif hasattr(widget, "get_plotly_widget"):
+        widget.get_plotly_widget().set_brush_mode(target)
+
+    return target
+
+
+brush.__mathex_command__ = True
 
 
 # ============================================================
@@ -140,7 +169,8 @@ __all__ = [
     "lighting", "camlight",
 
     # figures
-    "figure", "gcf", "clf", "close", "closeall", "hold",
+    "figure", "gcf", "clf", "close", "closeall", "hold", "brush",
+    "smart_plot", "UniversalPlotRouter",
 
     # animation
     "drawnow", "getframe", "movie",
